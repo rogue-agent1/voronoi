@@ -1,55 +1,37 @@
-#!/usr/bin/env python3
-"""Voronoi Diagram - Generate Voronoi regions for 2D point sets."""
-import sys, math, random
+import argparse, random, math
 
-def nearest_site(x, y, sites):
-    best = None; best_d = float('inf')
-    for i, (sx, sy) in enumerate(sites):
-        d = (x-sx)**2 + (y-sy)**2
-        if d < best_d: best_d = d; best = i
-    return best
-
-def voronoi_grid(sites, width=60, height=30):
-    grid = [[0]*width for _ in range(height)]
-    for y in range(height):
-        for x in range(width):
-            grid[y][x] = nearest_site(x * 100 / width, y * 100 / height, sites)
-    return grid
-
-def render(grid, sites, width, height):
-    chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-    site_coords = set()
-    for i, (sx, sy) in enumerate(sites):
-        gx = int(sx * width / 100); gy = int(sy * height / 100)
-        site_coords.add((gy, gx, i))
-    lines = []
+def voronoi(width, height, n_points, seed=None):
+    if seed: random.seed(seed)
+    points = [(random.randint(0, width-1), random.randint(0, height-1)) for _ in range(n_points)]
+    chars = "·#@%&*+=$~"
+    grid = []
     for y in range(height):
         row = ""
         for x in range(width):
-            is_site = False
-            for sy, sx, si in site_coords:
-                if sy == y and sx == x: row += "●"; is_site = True; break
-            if not is_site:
-                c = grid[y][x]
-                is_border = False
-                for dy, dx in [(-1,0),(1,0),(0,-1),(0,1)]:
-                    ny, nx = y+dy, x+dx
-                    if 0<=ny<height and 0<=nx<width and grid[ny][nx] != c: is_border = True; break
-                row += "·" if is_border else chars[c % len(chars)]
-            
-        lines.append(row)
-    return "\n".join(lines)
+            min_dist = float("inf")
+            closest = 0
+            for i, (px, py) in enumerate(points):
+                d = math.sqrt((x-px)**2 + (y-py)**2)
+                if d < min_dist: min_dist = d; closest = i
+            row += chars[closest % len(chars)]
+        grid.append(row)
+    # Mark points
+    grid_list = [list(row) for row in grid]
+    for px, py in points:
+        if 0 <= py < height and 0 <= px < width:
+            grid_list[py][px] = "●"
+    return ["".join(row) for row in grid_list]
 
 def main():
-    random.seed(42)
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 8
-    sites = [(random.randint(5,95), random.randint(5,95)) for _ in range(n)]
-    w, h = 60, 25
-    grid = voronoi_grid(sites, w, h)
-    print(f"=== Voronoi Diagram ({n} sites) ===\n")
-    print(render(grid, sites, w, h))
-    print(f"\nSites:")
-    for i, (x, y) in enumerate(sites): print(f"  {chr(65+i)}: ({x}, {y})")
+    p = argparse.ArgumentParser(description="Voronoi diagram")
+    p.add_argument("-w", "--width", type=int, default=60)
+    p.add_argument("-H", "--height", type=int, default=25)
+    p.add_argument("-n", "--points", type=int, default=8)
+    p.add_argument("--seed", type=int)
+    p.add_argument("--manhattan", action="store_true")
+    args = p.parse_args()
+    grid = voronoi(args.width, args.height, args.points, args.seed)
+    for row in grid: print(row)
 
 if __name__ == "__main__":
     main()
