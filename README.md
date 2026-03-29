@@ -1,19 +1,11 @@
-# Voronoi Diagram
+# voronoi
 
-Generate Voronoi diagrams with ASCII rendering
+voronoi: Voronoi diagram via brute-force nearest-site assignment.
+
+Single-file, zero-dependency Python CLI.
 
 ## Usage
 
 ```bash
-python3 voronoi.py --help
+python3 voronoi.py test
 ```
-
-## Features
-
-- Zero dependencies (Python 3.8+ stdlib only)
-- Single file
-- CLI interface
-
-## License
-
-MIT

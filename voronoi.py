@@ -1,40 +1,57 @@
 #!/usr/bin/env python3
-"""voronoi - Voronoi diagram generator with ASCII output."""
-import random, math, argparse
+"""voronoi: Voronoi diagram via brute-force nearest-site assignment."""
+import math, sys
 
-def voronoi(w, h, seeds, seed_val=None):
-    if seed_val is not None: random.seed(seed_val)
-    points = [(random.randint(0,w-1), random.randint(0,h-1)) for _ in range(seeds)]
-    grid = [[0]*w for _ in range(h)]
-    for y in range(h):
-        for x in range(w):
-            best = float("inf"); bi = 0
-            for i,(px,py) in enumerate(points):
-                d = (x-px)**2 + (y-py)**2
-                if d < best: best = d; bi = i
-            grid[y][x] = bi
-    return grid, points
+def nearest_site(point, sites):
+    best_i, best_d = 0, float('inf')
+    for i, s in enumerate(sites):
+        d = math.sqrt((point[0]-s[0])**2 + (point[1]-s[1])**2)
+        if d < best_d:
+            best_i, best_d = i, d
+    return best_i
 
-def render(grid, points):
-    syms = "abcdefghijklmnopqrstuvwxyz0123456789"
-    lines = []
-    ps = {(px,py) for px,py in points}
-    for y, row in enumerate(grid):
-        line = ""
-        for x, c in enumerate(row):
-            if (x,y) in ps: line += "*"
-            else: line += syms[c % len(syms)]
-        lines.append(line)
-    return "\n".join(lines)
+def voronoi_grid(sites, width, height, resolution=1):
+    grid = []
+    for y in range(0, height, resolution):
+        row = []
+        for x in range(0, width, resolution):
+            row.append(nearest_site((x, y), sites))
+        grid.append(row)
+    return grid
 
-def main():
-    p = argparse.ArgumentParser(description="Voronoi diagram generator")
-    p.add_argument("-W", type=int, default=60); p.add_argument("-H", type=int, default=25)
-    p.add_argument("-n", "--seeds", type=int, default=8)
-    p.add_argument("--seed", type=int, default=None)
-    args = p.parse_args()
-    grid, points = voronoi(args.W, args.H, args.seeds, args.seed)
-    print(render(grid, points))
+def lloyd_relax(sites, width, height, iterations=1, resolution=1):
+    sites = [list(s) for s in sites]
+    for _ in range(iterations):
+        grid = voronoi_grid(sites, width, height, resolution)
+        centroids = {i: ([], []) for i in range(len(sites))}
+        for y, row in enumerate(grid):
+            for x, site_id in enumerate(row):
+                centroids[site_id][0].append(x * resolution)
+                centroids[site_id][1].append(y * resolution)
+        for i in range(len(sites)):
+            xs, ys = centroids[i]
+            if xs:
+                sites[i] = [sum(xs)/len(xs), sum(ys)/len(ys)]
+    return [tuple(s) for s in sites]
+
+def test():
+    sites = [(10,10), (40,40), (10,40)]
+    grid = voronoi_grid(sites, 50, 50)
+    assert grid[0][0] == 0  # (0,0) closest to (10,10)
+    assert grid[49][49] == 1  # (49,49) closest to (40,40)
+    assert grid[49][0] == 2  # (0,49) closest to (10,40)
+    # Lloyd relaxation
+    new_sites = lloyd_relax(sites, 50, 50, iterations=3)
+    assert len(new_sites) == 3
+    # Sites should spread more evenly
+    for s in new_sites:
+        assert 0 <= s[0] <= 50
+        assert 0 <= s[1] <= 50
+    # Single site
+    grid2 = voronoi_grid([(25,25)], 50, 50)
+    assert all(cell == 0 for row in grid2 for cell in row)
+    print("All tests passed!")
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "test": test()
+    else: print("Usage: voronoi.py test")
